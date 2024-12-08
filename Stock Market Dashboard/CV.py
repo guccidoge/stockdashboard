@@ -56,3 +56,4 @@ if __name__ == "__main__":
         print(nyse_tickers_df.head())  # Show first few entries
     except Exception as e:
         print(f"Error: {e}")
+#just testing to see this is the second push

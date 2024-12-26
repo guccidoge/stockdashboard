@@ -1,5 +1,5 @@
-### Welcome to Stock Market Dashboard!
-
+# Welcome to Stock Market Dashboard!
+This is a comprehensive tool for any investing beginners looking for a clean overview of the important takeaways before betting your first dollar on a stock.
 ![A fun GIF](https://i.gifer.com/7D7o.gif)
 
 ## 🌟 Team Members 🌟

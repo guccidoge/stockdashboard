@@ -1,4 +1,4 @@
-##Welcome to Stock Market Dashboard!
+### Welcome to Stock Market Dashboard!
 
 ![A fun GIF](https://i.gifer.com/7D7o.gif)
 

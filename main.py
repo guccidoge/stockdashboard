@@ -2,7 +2,7 @@
 
 import pandas as pd
 from functions import fetch_weekly_data, store_data_to_database, update_database
-from CV import get_nyse_tickers
+from nyse_tickers import get_nyse_tickers
 
 def main():
     # Step 1: Scrape tickers using CV.py

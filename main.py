@@ -1,7 +1,7 @@
 # main.py
 
 import pandas as pd
-from RTD import fetch_weekly_data, store_data_to_database, update_database
+from functions import fetch_weekly_data, store_data_to_database, update_database
 from CV import get_nyse_tickers
 
 def main():

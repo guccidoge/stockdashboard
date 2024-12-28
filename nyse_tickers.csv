@@ -23,7 +23,6 @@ GOOG,Alphabet Inc. (Class C),Interactive Media & Services
 MO,Altria,Tobacco
 AMZN,Amazon,Broadline Retail
 AMCR,Amcor,Paper & Plastic Packaging Products & Materials
-AMTM,Amentum,Diversified Support Services
 AEE,Ameren,Multi-Utilities
 AEP,American Electric Power,Electric Utilities
 AXP,American Express,Consumer Finance
@@ -38,6 +37,7 @@ ADI,Analog Devices,Semiconductors
 ANSS,Ansys,Application Software
 AON,Aon,Insurance Brokers
 APA,APA Corporation,Oil & Gas Exploration & Production
+APO,Apollo Global Management,Asset Management & Custody Banks
 AAPL,Apple Inc.,"Technology Hardware, Storage & Peripherals"
 AMAT,Applied Materials,Semiconductor Materials & Equipment
 APTV,Aptiv,Automotive Parts & Equipment
@@ -88,7 +88,6 @@ CAH,Cardinal Health,Health Care Distributors
 KMX,CarMax,Automotive Retail
 CCL,Carnival,"Hotels, Resorts & Cruise Lines"
 CARR,Carrier Global,Building Products
-CTLT,Catalent,Pharmaceuticals
 CAT,Caterpillar Inc.,Construction Machinery & Heavy Transportation Equipment
 CBOE,Cboe Global Markets,Financial Exchanges & Data
 CBRE,CBRE Group,Real Estate Services
@@ -288,6 +287,7 @@ LW,Lamb Weston,Packaged Foods & Meats
 LVS,Las Vegas Sands,Casinos & Gaming
 LDOS,Leidos,Diversified Support Services
 LEN,Lennar,Homebuilding
+LII,Lennox International,Building Products
 LLY,Lilly (Eli),Pharmaceuticals
 LIN,Linde plc,Industrial Gases
 LYV,Live Nation Entertainment,Movies & Entertainment
@@ -387,7 +387,6 @@ PEG,Public Service Enterprise Group,Electric Utilities
 PTC,PTC Inc.,Application Software
 PSA,Public Storage,Self-Storage REITs
 PHM,PulteGroup,Homebuilding
-QRVO,Qorvo,Semiconductors
 PWR,Quanta Services,Construction & Engineering
 QCOM,Qualcomm,Semiconductors
 DGX,Quest Diagnostics,Health Care Services
@@ -495,6 +494,7 @@ WDC,Western Digital,"Technology Hardware, Storage & Peripherals"
 WY,Weyerhaeuser,Timber REITs
 WMB,Williams Companies,Oil & Gas Storage & Transportation
 WTW,Willis Towers Watson,Insurance Brokers
+WDAY,"Workday, Inc.",Application Software
 WYNN,Wynn Resorts,Casinos & Gaming
 XEL,Xcel Energy,Multi-Utilities
 XYL,Xylem Inc.,Industrial Machinery & Supplies & Components

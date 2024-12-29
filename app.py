@@ -1,5 +1,14 @@
 import streamlit as st
-import pandas as pd
-import sqlite3
-from functions_ml import get_top_5_low_risk  # Assuming functions are in the same directory
 
+# Title
+st.title('Stock Dashboard')
+
+# Display some text
+st.write('Here is the data visualization you requested!')
+
+# Add a button to see if it's responding
+if st.button('Click Me'):
+    st.write('Button clicked!')
+
+# Example of a simple chart
+st.line_chart([1, 2, 3, 4, 5])

@@ -5,12 +5,28 @@ import numpy as np
 # Set page configuration
 st.set_page_config(page_title="Stock Dashboard", layout="wide")
 
-# Sidebar navigation
+# Function to manage navigation state
+def navigate_to(page_name):
+    st.session_state["current_page"] = page_name
+
+# Initialize session state for navigation
+if "current_page" not in st.session_state:
+    st.session_state["current_page"] = "Overview"
+
+# Sidebar navigation with buttons
 st.sidebar.title("Navigation")
-page = st.sidebar.radio("Go to", ["Overview", "Top 5 Companies", "Forecast"])
+if st.sidebar.button("Overview"):
+    navigate_to("Overview")
+if st.sidebar.button("Top 5 Companies"):
+    navigate_to("Top 5 Companies")
+if st.sidebar.button("Forecast"):
+    navigate_to("Forecast")
+
+# Current page display
+current_page = st.session_state["current_page"]
 
 # Overview Page
-if page == "Overview":
+if current_page == "Overview":
     st.title("Stock Dashboard - Overview")
     st.write("""
         Welcome to the Stock Dashboard!  
@@ -19,7 +35,7 @@ if page == "Overview":
     """)
 
 # Top 5 Companies Page
-elif page == "Top 5 Companies":
+elif current_page == "Top 5 Companies":
     st.title("Top 5 Companies to Invest Tomorrow")
     # Mock data for top 5 companies
     mock_top_5 = pd.DataFrame({
@@ -31,7 +47,7 @@ elif page == "Top 5 Companies":
     st.write("This chart represents the top 5 companies predicted to have the least risk and highest returns tomorrow.")
 
 # Forecast Page
-elif page == "Forecast":
+elif current_page == "Forecast":
     st.title("Forecast for Individual Stocks")
 
     # Forecast slider

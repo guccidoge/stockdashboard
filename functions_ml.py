@@ -101,3 +101,4 @@ def get_top_5_low_risk(data):
     low_risk_companies = data[data['Risk_Prediction'] == 1]
     top_5 = low_risk_companies.sort_values(by='Sharpe_Ratio', ascending=False).head(5)
     return top_5
+### edited

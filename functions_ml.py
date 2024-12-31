@@ -1,104 +1,76 @@
-#machine learning
-
-import sqlite3
 import pandas as pd
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import StandardScaler
+from statsmodels.tsa.arima.model import ARIMA
+from collections import defaultdict
 
-def fetch_data_from_database(db_name="stock_data.db"):
+def preprocess_data_for_arima(stock_data):
     """
-    Fetch data from the SQLite database for machine learning.
+    Preprocess stock data for ARIMA model.
+    - Convert 'Timestamp' to datetime
+    - Set 'Timestamp' as index
+    - Resample to weekly frequency if needed
+    """
+    stock_data['Timestamp'] = pd.to_datetime(stock_data['Timestamp'])
+    stock_data.set_index('Timestamp', inplace=True)
+    stock_data = stock_data.resample('W').last()  # Resample to weekly data
+    return stock_data
+
+def predict_stock_prices(stock_data):
+    """
+    Apply ARIMA model to predict the next week's stock price.
+    """
+    # Assuming we're predicting the 'Close' price
+    model = ARIMA(stock_data['Close'], order=(5, 1, 0))  # Example ARIMA configuration
+    model_fit = model.fit()
+    forecast = model_fit.forecast(steps=1)  # Forecast for the next week
+    return forecast[0]  # Return predicted stock price
+
+def predict_stock_prices_by_sector(stock_data):
+    """
+    Predict the stock price for all companies, grouped by sector.
+    """
+    predictions_by_sector = defaultdict(list)
+
+    # Group by Sector
+    grouped_data = stock_data.groupby('Sector')
+
+    for sector, group in grouped_data:
+        print(f"Processing sector: {sector}")
+        sector_predictions = []
+
+        # Process each stock in the sector
+        for ticker, ticker_data in group.groupby('Ticker'):
+            ticker_data = preprocess_data_for_arima(ticker_data)
+            try:
+                predicted_price = predict_stock_prices(ticker_data)
+                sector_predictions.append({'Ticker': ticker, 'Predicted Price': predicted_price})
+            except Exception as e:
+                print(f"Error predicting price for {ticker}: {e}")
+        
+        predictions_by_sector[sector] = pd.DataFrame(sector_predictions)
+
+    return predictions_by_sector
+
+def fetch_and_merge_data(db_path="stock_data.db", csv_path="nyse_tickers.csv"):
+    """
+    Fetch stock data from database and merge with sector information from CSV.
     Args:
-        db_name: Name of the SQLite database file.
+        db_path (str): Path to the SQLite database file.
+        csv_path (str): Path to the CSV file containing ticker and sector information.
     Returns:
-        DataFrame containing the stock data.
+        DataFrame: Merged DataFrame with stock and sector data.
     """
-    try:
-        conn = sqlite3.connect(db_name)
-        query = "SELECT * FROM stock_data;"
-        data = pd.read_sql_query(query, conn)
-        return data
-    except Exception as e:
-        print(f"Error fetching data from database: {e}")
-        return pd.DataFrame()
-    finally:
-        conn.close()
+    # Fetch stock data from database
+    conn = sqlite3.connect(db_path)
+    stock_data = pd.read_sql("SELECT * FROM stock_data", conn)
+    conn.close()
 
-def calculate_metrics(data):
-    """
-    Add calculated fields like Volatility and Sharpe Ratio to the data.
-    Args:
-        data: DataFrame containing stock data.
-    Returns:
-        DataFrame with additional metrics.
-    """
-    # Calculate Volatility (e.g., based on High and Low prices)
-    data['Volatility'] = data['High'] - data['Low']
+    # Load sector information
+    nyse_tickers_df = pd.read_csv(csv_path)
 
-    # Calculate Sharpe Ratio (e.g., based on Close prices)
-    data['Daily_Return'] = data['Close'].pct_change()
-    data['Sharpe_Ratio'] = data['Daily_Return'].mean() / data['Daily_Return'].std()
+    # Merge on the 'Ticker' column
+    stock_data = stock_data.merge(nyse_tickers_df[['Ticker', 'Sector']], on='Ticker', how='left')
 
-    # Define Low Risk Label (1 = Low Risk, 0 = High Risk)
-    data['Low_Risk_Label'] = ((data['Volatility'] < 2) & (data['Sharpe_Ratio'] > 0.5)).astype(int)
+    # Optional: Handle missing sectors
+    stock_data['Sector'] = stock_data['Sector'].fillna('Unknown')  # Or drop rows with missing sectors
 
-    return data.dropna()  # Drop rows with NaN values (e.g., first row for pct_change)
-
-def train_model(data):
-    """
-    Train a machine learning model to classify low-risk companies.
-    Args:
-        data: DataFrame containing risk metrics for all companies.
-    Returns:
-        model: Trained machine learning model.
-    """
-    # Prepare features (X) and target (y)
-    X = data[['Volatility', 'Sharpe_Ratio']]
-    y = data['Low_Risk_Label']
-
-    # Split data into training and testing sets
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
-
-    # Normalize the data
-    scaler = StandardScaler()
-    X_train_scaled = scaler.fit_transform(X_train)
-    X_test_scaled = scaler.transform(X_test)
-
-    # Initialize and train the model
-    model = RandomForestClassifier(n_estimators=100, random_state=42)
-    model.fit(X_train_scaled, y_train)
-
-    # Evaluate the model (optional)
-    score = model.score(X_test_scaled, y_test)
-    print(f"Model accuracy: {score * 100:.2f}%")
-
-    return model, scaler
-
-def predict_risk(model, scaler, data):
-    """
-    Predict the risk level of companies using the trained model.
-    Args:
-        model: Trained machine learning model.
-        scaler: Scaler used for normalizing the data.
-        data: DataFrame containing the features for prediction.
-    Returns:
-        DataFrame with predictions.
-    """
-    X = data[['Volatility', 'Sharpe_Ratio']]
-    X_scaled = scaler.transform(X)
-    data['Risk_Prediction'] = model.predict(X_scaled)
-    return data
-
-def get_top_5_low_risk(data):
-    """
-    Get the top 5 low-risk companies based on model predictions.
-    Args:
-        data: DataFrame with risk predictions.
-    Returns:
-        DataFrame with top 5 low-risk companies.
-    """
-    low_risk_companies = data[data['Risk_Prediction'] == 1]
-    top_5 = low_risk_companies.sort_values(by='Sharpe_Ratio', ascending=False).head(5)
-    return top_5
-### edited
+    return stock_data

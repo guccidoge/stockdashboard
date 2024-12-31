@@ -1,3 +1,4 @@
+import sqlite3
 import pandas as pd
 from statsmodels.tsa.arima.model import ARIMA
 from collections import defaultdict
@@ -18,11 +19,14 @@ def predict_stock_prices(stock_data):
     """
     Apply ARIMA model to predict the next week's stock price.
     """
-    # Assuming we're predicting the 'Close' price
-    model = ARIMA(stock_data['Close'], order=(5, 1, 0))  # Example ARIMA configuration
-    model_fit = model.fit()
-    forecast = model_fit.forecast(steps=1)  # Forecast for the next week
-    return forecast[0]  # Return predicted stock price
+    try:
+        # Assuming we're predicting the 'Close' price
+        model = ARIMA(stock_data['Close'], order=(5, 1, 0))  # Example ARIMA configuration
+        model_fit = model.fit()
+        forecast = model_fit.forecast(steps=1)  # Forecast for the next week
+        return forecast[0]  # Return predicted stock price
+    except Exception as e:
+        raise RuntimeError(f"ARIMA failed: {e}")
 
 def predict_stock_prices_by_sector(stock_data):
     """
@@ -40,6 +44,10 @@ def predict_stock_prices_by_sector(stock_data):
         # Process each stock in the sector
         for ticker, ticker_data in group.groupby('Ticker'):
             ticker_data = preprocess_data_for_arima(ticker_data)
+            if len(ticker_data) < 10:  # Skip if not enough data points
+                print(f"Insufficient data for {ticker}")
+                continue
+
             try:
                 predicted_price = predict_stock_prices(ticker_data)
                 sector_predictions.append({'Ticker': ticker, 'Predicted Price': predicted_price})

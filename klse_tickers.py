@@ -8,26 +8,30 @@ csv_file_path = 'klse_converted.csv'
 db_file_path = 'daily_stock_data.db'
 
 def fetch_and_store_data():
+    
     tickers_df = pd.read_csv(csv_file_path)
-    print("Column names in the CSV file:", tickers_df.columns)  
-    tickers = tickers_df.dropna(subset=['ticker']) 
+    print("Column names in the CSV file:", tickers_df.columns)
+    tickers = tickers_df.dropna(subset=['ticker'])  
 
+    
     conn = sqlite3.connect(db_file_path)
     cursor = conn.cursor()
 
     
     cursor.execute('''
     CREATE TABLE IF NOT EXISTS stock_data (
-        Ticker TEXT,
         Company_Name TEXT,
         Category TEXT,
-        Date TEXT,
         Open REAL,
         High REAL,
         Low REAL,
         Close REAL,
         Volume INTEGER,
-        PRIMARY KEY (Ticker, Date)
+        Dividend REAL,
+        Stock_Split REAL,
+        Ticker TEXT,
+        Timestamp TEXT,
+        PRIMARY KEY (Ticker, Timestamp)
     )
     ''')
     conn.commit()
@@ -38,9 +42,9 @@ def fetch_and_store_data():
         category = ticker_row['Category']  
 
         try:
-            print(f"Fetching daily data for {ticker} ({company_name})...")
+            print(f"Fetching weekly data for {ticker} ({company_name})...")
             
-            data = yf.download(tickers=ticker, interval='1d', period='1d')  
+            data = yf.download(tickers=ticker, interval='1wk', period='1y', actions=True)  
             if data.empty:
                 print(f"No data found for {ticker}. Skipping.")
                 continue
@@ -48,40 +52,41 @@ def fetch_and_store_data():
             
             data.reset_index(inplace=True)
 
-            
+        
             if isinstance(data.columns, pd.MultiIndex):
                 data.columns = [' '.join(col).strip() for col in data.columns]
 
             
             data.columns = [col.replace(f" {ticker}", "") for col in data.columns]
 
-            
+
             column_mapping = {
-                'Date': 'Date',
+                'Date': 'Timestamp',
                 'Adj Close': 'Adj Close',
                 'Close': 'Close',
                 'High': 'High',
                 'Low': 'Low',
                 'Open': 'Open',
-                'Volume': 'Volume'
+                'Volume': 'Volume',
+                'Dividends': 'Dividend',
+                'Stock Splits': 'Stock_Split'
             }
             data.rename(columns=column_mapping, inplace=True)
 
             
-            required_columns = ['Date', 'Open', 'High', 'Low', 'Close', 'Volume']
-            if not all(col in data.columns for col in required_columns):
-                print(f"Missing required columns for {ticker}. Skipping.")
-                continue
+            required_columns = ['Timestamp', 'Open', 'High', 'Low', 'Close', 'Volume', 'Dividend', 'Stock_Split']
+            for col in required_columns:
+                if col not in data.columns:
+                    data[col] = 0.0  
 
             
-            data = data[['Date', 'Open', 'High', 'Low', 'Close', 'Volume']]
-            data = data[pd.to_numeric(data['Open'], errors='coerce').notna()] 
-
+            data = data[['Timestamp', 'Open', 'High', 'Low', 'Close', 'Volume', 'Dividend', 'Stock_Split']]
+            data = data[pd.to_numeric(data['Open'], errors='coerce').notna()]  
             
             for _, row in data.iterrows():
                 try:
                     
-                    date = row['Date'].strftime('%Y-%m-%d') if isinstance(row['Date'], pd.Timestamp) else str(row['Date'])
+                    timestamp = row['Timestamp'].strftime('%Y-%m-%d') if isinstance(row['Timestamp'], pd.Timestamp) else str(row['Timestamp'])
 
                     
                     open_price = round(float(row['Open']), 2) if pd.notna(row['Open']) else None
@@ -89,12 +94,14 @@ def fetch_and_store_data():
                     low = round(float(row['Low']), 2) if pd.notna(row['Low']) else None
                     close = round(float(row['Close']), 2) if pd.notna(row['Close']) else None
                     volume = int(row['Volume']) if pd.notna(row['Volume']) else None
+                    dividend = round(float(row['Dividend']), 2) if pd.notna(row['Dividend']) else 0.0
+                    stock_split = round(float(row['Stock_Split']), 2) if pd.notna(row['Stock_Split']) else 0.0
 
                     
                     cursor.execute('''
-                    INSERT OR REPLACE INTO stock_data (Ticker, Company_Name, Category, Date, Open, High, Low, Close, Volume)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-                    ''', (ticker, company_name, category, date, open_price, high, low, close, volume))
+                    INSERT OR REPLACE INTO stock_data (Company_Name, Category, Open, High, Low, Close, Volume, Dividend, Stock_Split, Ticker, Timestamp)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    ''', (company_name, category, open_price, high, low, close, volume, dividend, stock_split, ticker, timestamp))
                 except Exception as row_error:
                     print(f"Error processing row for {ticker}: {row_error}")
         except Exception as fetch_error:
@@ -110,9 +117,9 @@ print("Fetching data now...")
 fetch_and_store_data()
 
 
-schedule.every().day.at("09:00").do(fetch_and_store_data)
+schedule.every().monday.at("09:00").do(fetch_and_store_data) 
 
-print("Scheduler started. Waiting for the next run...")
+print("Scheduler started. Waiting for the next weekly update...")
 
 
 while True:

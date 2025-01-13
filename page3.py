@@ -102,16 +102,16 @@ def create_features(data):
 # Function to display today's and tomorrow's price with arrows
 def display_prices_and_arrows(today_price, tomorrow_price):
     if tomorrow_price > today_price:
-        arrow = "🔼"  # Green arrow (up)
+        arrow = "↑"  # Green arrow (up)
         color = "green"
     else:
-        arrow = "🔽"  # Red arrow (down)
+        arrow = "↓"  # Red arrow (down)
         color = "red"
 
     # Display today's price and tomorrow's price with the arrow
     st.markdown(
-        f"### Today's Price: {round(today_price, 2)} RM  |  "
-        f"**Tomorrow's Price: {round(tomorrow_price, 2)} RM** {arrow}",
+        f"### Today's Price: MYR {round(today_price, 2)}  |  "
+        f"**Tomorrow's Price: MYR {round(tomorrow_price, 2)}** <span style='color:{color};'>{arrow}</span>",
         unsafe_allow_html=True
     )
 
@@ -145,38 +145,221 @@ def display_search_button(ticker):
     # Creating a Google search URL for the user to search for stock news
     search_url = f"https://www.google.com/search?q={ticker}+stock+news"
     
-    # Creating a clean, contrasting styled button with custom CSS
+    # Custom circular button styling with updated contrast and visibility
     st.markdown(
         f"""
         <style>
             .search-button {{
                 display: inline-block;
-                padding: 10px 20px;
-                background-color: #28a745;  /* Green for better visibility */
-                color: white;
+                padding: 12px 30px;
+                background-color: white;
+                color: #007BFF;
                 text-decoration: none;
-                border-radius: 5px;
+                border-radius: 50px;  /* Circular border */
                 font-size: 16px;
+                font-weight: bold;
+                border: 2px solid #007BFF;
                 box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
                 transition: background-color 0.3s ease, transform 0.2s ease;
             }}
             .search-button:hover {{
-                background-color: #218838;  /* Darker green on hover */
+                background-color: #007BFF;  /* Blue background on hover */
+                color: white;
                 transform: translateY(-2px);
             }}
             .search-button:active {{
-                background-color: #1e7e34;  /* Even darker green when clicked */
+                background-color: #0056b3;  /* Darker blue when clicked */
+                border-color: #0056b3;
             }}
         </style>
         <a class="search-button" href="{search_url}" target="_blank">Search for {ticker} Stock News</a>
         """, unsafe_allow_html=True)
 
+# Function to calculate volatility (standard deviation of daily returns)
+def calculate_volatility(ticker):
+    with get_db_connection() as conn:
+        query = """
+        SELECT date, open, close FROM stock_prices WHERE ticker = ? ORDER BY date DESC LIMIT 252
+        """
+        stock_data = pd.read_sql(query, conn, params=(ticker,))
+
+        # Calculate daily returns (percentage change)
+        stock_data['daily_return'] = stock_data['close'].pct_change()
+
+        # Calculate volatility (standard deviation of daily returns)
+        volatility = stock_data['daily_return'].std() * np.sqrt(252)  # Annualize the volatility
+
+    return volatility
+
+# Function to calculate revenue growth
+def calculate_revenue_growth(ticker):
+    with get_db_connection() as conn:
+        query = """
+        SELECT date, revenue FROM financials WHERE ticker = ? ORDER BY date DESC LIMIT 2
+        """
+        revenue_data = pd.read_sql(query, conn, params=(ticker,))
+
+    if len(revenue_data) == 2:
+        revenue_growth = (
+            (revenue_data.iloc[0]['revenue'] - revenue_data.iloc[1]['revenue'])
+            / revenue_data.iloc[1]['revenue']
+        ) * 100
+        return revenue_growth
+    else:
+        return None  # Not enough data for revenue growth
+
+# Function to calculate profit margin
+def calculate_profit_margin(ticker):
+    with get_db_connection() as conn:
+        query = """
+        SELECT revenue, net_income FROM financials WHERE ticker = ? ORDER BY date DESC LIMIT 1
+        """
+        financial_data = pd.read_sql(query, conn, params=(ticker,))
+
+    if len(financial_data) > 0:
+        revenue = financial_data.iloc[0]['revenue']
+        net_income = financial_data.iloc[0]['net_income']
+
+        if revenue > 0:  # To avoid division by zero
+            return (net_income / revenue) * 100
+    return None
+
+# Function to calculate normalized metrics by sector
+def normalize_by_sector(ticker):
+    with get_db_connection() as conn:
+        # Fetch the sector for the given ticker
+        query_sector = "SELECT category FROM companies WHERE ticker = ?"
+        sector = pd.read_sql(query_sector, conn, params=(ticker,)).iloc[0]['category']
+
+        # Fetch sector-wide metrics
+        query_sector_data = """
+        SELECT f.ticker, f.market_cap, f.pe_ratio, f.revenue, f.net_income
+        FROM financials f
+        JOIN companies c ON f.ticker = c.ticker
+        WHERE c.category = ?
+        """
+        sector_data = pd.read_sql(query_sector_data, conn, params=(sector,))
+
+        # Calculate sector averages
+        sector_avg = sector_data.mean(numeric_only=True)
+
+        # Fetch the target company's financial data
+        query_company = """
+        SELECT market_cap, pe_ratio, revenue, net_income
+        FROM financials
+        WHERE ticker = ? ORDER BY date DESC LIMIT 1
+        """
+        company_data = pd.read_sql(query_company, conn, params=(ticker,))
+
+    if company_data.empty or sector_data.empty:
+        return None  # Return None if data is insufficient
+
+    # Normalize company metrics against sector averages
+    normalized_metrics = {
+        'market_cap': company_data.iloc[0]['market_cap'] / sector_avg['market_cap'],
+        'pe_ratio': company_data.iloc[0]['pe_ratio'] / sector_avg['pe_ratio'],
+        'revenue': company_data.iloc[0]['revenue'] / sector_avg['revenue'],
+        'net_income': company_data.iloc[0]['net_income'] / sector_avg['net_income'],
+    }
+
+    return normalized_metrics
+
+# Updated function to calculate the risk score
+def calculate_risk(ticker):
+    with get_db_connection() as conn:
+        query = """
+        SELECT market_cap, pe_ratio FROM financials WHERE ticker = ? ORDER BY date DESC LIMIT 1
+        """
+        financial_data = pd.read_sql(query, conn, params=(ticker,))
+
+        if len(financial_data) > 0:
+            market_cap = financial_data.iloc[0]['market_cap']
+            pe_ratio = financial_data.iloc[0]['pe_ratio']
+
+            # Calculate metrics
+            volatility = calculate_volatility(ticker)
+            revenue_growth = calculate_revenue_growth(ticker)
+            profit_margin = calculate_profit_margin(ticker)
+
+            # Normalize metrics to 0-100 scale
+            risk_score = 0
+
+            # Volatility: Higher volatility = higher risk
+            if volatility and volatility < 0.1:
+                risk_score += 10
+            elif volatility and volatility < 0.2:
+                risk_score += 30
+            else:
+                risk_score += 50
+
+            # Revenue Growth: Negative growth = higher risk
+            if revenue_growth is not None:
+                if revenue_growth > 10:
+                    risk_score += 10  # Low risk
+                elif revenue_growth > 0:
+                    risk_score += 30  # Moderate risk
+                else:
+                    risk_score += 50  # High risk
+
+            # Profit Margin: Lower profit margin = higher risk
+            if profit_margin is not None:
+                if profit_margin > 15:
+                    risk_score += 10
+                elif profit_margin > 5:
+                    risk_score += 30
+                else:
+                    risk_score += 50
+
+            # Ensure risk score doesn't exceed 100
+            risk_score = min(risk_score, 100)
+
+            return risk_score
+
+    return None
+
+
+# Display the risk for a selected company
+def display_risk_for_selected_company(ticker):
+    if not ticker:
+        st.error("Please select a company first.")
+        return
+
+    risk_score = calculate_risk(ticker)
+
+    if risk_score is not None:
+        # Show the risk score and company name in the Streamlit UI
+        st.subheader(f"Risk Analysis for {ticker}")
+
+        # Determine risk level and color
+        if risk_score < 30:
+            risk_level = "Low Risk"
+            color = "green"
+        elif risk_score < 60:
+            risk_level = "Medium Risk"
+            color = "yellow"
+        else:
+            risk_level = "High Risk"
+            color = "red"
+
+        # Display risk level with colored progress bar
+        st.markdown(
+            f"""
+            <div style="text-align: center; font-weight: bold; color: {color}; font-size: 18px; margin-bottom: 10px;">
+                {risk_level}
+            </div>
+            <div style="height: 8px; width: 100%; background-color: lightgrey; border-radius: 5px; overflow: hidden;">
+                <div style="height: 100%; width: {risk_score}%; background-color: {color};"></div>
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
+    else:
+        st.markdown(f"No sufficient data available for {ticker} to calculate risk.")
+        st.progress(0)
+
 # Streamlit Application
 def page3():
     st.title("Stock Dashboard")
-
-    # Search barstreamlit
-    search_term = st.text_input("Search for a company or ticker:", "")
 
     # Filter by category dropdown
     category = st.selectbox("Filter by category:", ["All"] + get_categories())
@@ -186,15 +369,19 @@ def page3():
         companies = get_companies_by_category(category)
     else:
         companies = []
-        if search_term:
-            # If there's a search term, get companies matching the search
-            with get_db_connection() as conn:
-                cursor = conn.cursor()
-                cursor.execute("SELECT name FROM companies WHERE name LIKE ?", ('%' + search_term + '%',))
-                companies = [row[0] for row in cursor.fetchall()]
 
     # Dropdown to select a company from the filtered list
     company_name = st.selectbox("Select a company:", companies)
+
+    # Search bar for company or ticker (now below the dropdowns)
+    search_term = st.text_input("Search for a company or ticker:", "")
+
+    # Filter companies based on search term if entered
+    if search_term:
+        with get_db_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT name FROM companies WHERE name LIKE ?", ('%' + search_term + '%',))
+            companies = [row[0] for row in cursor.fetchall()]
 
     # If a company is selected, fetch and display details
     if company_name:
@@ -206,13 +393,13 @@ def page3():
             with col1:
                 st.metric("P/E Ratio", round(pe_ratio, 2) if pe_ratio else "N/A")
             with col2:
-                st.metric("Market Cap", f"${market_cap / 1e9:.2f} B" if market_cap else "N/A")
+                st.metric("Market Cap", f"MYR {market_cap / 1e9:.2f} B" if market_cap else "N/A")
             with col3:
-                st.metric("Revenue", f"${revenue / 1e9:.2f} B" if revenue else "N/A")
+                st.metric("Revenue", f"MYR {revenue / 1e9:.2f} B" if revenue else "N/A")
             with col4:
-                st.metric("Net Income", f"${net_income / 1e6:.2f} M" if net_income else "N/A")
+                st.metric("Net Income", f"MYR {net_income / 1e6:.2f} M" if net_income else "N/A")
             with col5:
-                st.metric("EPS", round(eps, 2) if eps else "N/A")
+                st.metric("Earnings Per Share", round(eps, 2) if eps else "N/A")
         else:
             st.warning("Company details not found.")
     else:
@@ -222,7 +409,7 @@ def page3():
     st.title("Forecast for Selected Stock")
 
     # Input for forecast range and stock ticker
-    forecast_range = st.slider("Select Forecast Range (days)", 1, 30, 7, step=1)
+    forecast_range = st.slider("Select number of days to forecast:", min_value=7, max_value=30, value=7, step=1)
 
     # Fetch stock data for the selected company
     if company_name:
@@ -259,7 +446,7 @@ def page3():
                     )[1:]
                     forecast_data = pd.DataFrame({'Date': forecast_dates, 'Predicted Price': forecast_predictions})
 
-                     # Get today's price (last value from the historical data)
+                    # Get today's price (last value from the historical data)
                     today_price = stock_data['close'].iloc[-1]
 
                     # Display today's price and tomorrow's forecast price with arrows
@@ -271,15 +458,18 @@ def page3():
 
                     st.markdown(
                         f"""
-                        - **Forecasted using**: Random Forest Regressor
-                        - **Model Accuracy**: {r_squared_percentage:.2f}%  
-                          *(This means the model explains {r_squared_percentage:.2f}% of the price movements based on historical data.)*
-                        - **Mean Absolute Error (MAE)**: ±{mae:.2f} RM  
-                          *(On average, predictions deviate from actual prices by this amount.)*
+                        ### Model Forecast Details
+                        **Forecast Method:** Random Forest Regressor
 
-                        *The forecast is based on historical trends and assumes market conditions remain stable.*
+                        **Model Accuracy:** {r_squared_percentage:.2f}% | _This means the model explains {r_squared_percentage:.2f}% of the price movements based on historical data._
+
+                        **Mean Absolute Error (MAE):** ±RM{mae:.2f} | _On average, the predictions deviate from actual prices by this amount._
+
+                        **Note:** The forecast is based on historical trends and assumes market conditions remain stable.
                         """
                     )
+
+                    display_risk_for_selected_company(ticker)
 
                     # Create Plotly figure
                     fig = go.Figure()
@@ -328,3 +518,4 @@ def page3():
                     st.error(f"An error occurred during forecasting: {e}")
 
                 display_search_button(ticker)
+

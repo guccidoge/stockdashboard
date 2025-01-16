@@ -6,6 +6,7 @@ import plotly.graph_objects as go
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import mean_absolute_error
+import time
 
 # Function to get a fresh database connection
 def get_db_connection():
@@ -93,10 +94,6 @@ def create_features(data):
     X = data.drop('close', axis=1)  # Features should only include numerical columns
     y = data['close']  # Target should be the stock price (close)
 
-    # Debugging: Check the columns in X and y
-    print(f"Feature matrix columns: {X.columns}")
-    print(f"Target column: {y.name}")
-
     return X, y
 
 # Function to display today's and tomorrow's price with arrows
@@ -119,9 +116,6 @@ def display_prices_and_arrows(today_price, tomorrow_price):
 def random_forest_forecast(data, forecast_range=7):
     # Prepare the features and target
     X, y = create_features(data)
-
-    # Debugging: Check the data types of the features
-    print(X.dtypes)
 
     # Train-test split
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, shuffle=False)
@@ -341,21 +335,66 @@ def display_risk_for_selected_company(ticker):
             risk_level = "High Risk"
             color = "red"
 
-        # Display risk level with colored progress bar
+        # Display risk level text
         st.markdown(
             f"""
             <div style="text-align: center; font-weight: bold; color: {color}; font-size: 18px; margin-bottom: 10px;">
                 {risk_level}
             </div>
-            <div style="height: 8px; width: 100%; background-color: lightgrey; border-radius: 5px; overflow: hidden;">
-                <div style="height: 100%; width: {risk_score}%; background-color: {color};"></div>
-            </div>
             """,
             unsafe_allow_html=True
         )
+
+        # Animated progress bar
+        placeholder = st.empty()  # Create a placeholder for dynamic content
+
+        for i in range(risk_score + 1):
+            placeholder.markdown(
+                f"""
+                <div style="height: 15px; width: 100%; background-color: lightgrey; border-radius: 10px; overflow: hidden;">
+                    <div style="height: 100%; width: {i}%; background-color: {color};"></div>
+                </div>
+                """,
+                unsafe_allow_html=True
+            )
+            time.sleep(0.02)  # Adjust speed of the animation
+
+        with st.expander("How is this calculated?"):
+            st.markdown("""
+            The risk level is calculated based on the following factors:
+            - **Volatility**: Measured by the standard deviation of stock returns.
+            - **Beta**: The stock's sensitivity to market movements.
+            - **Sharpe Ratio**: The risk-adjusted return of the stock.
+            - **Sector Risk**: Average risk score of the sector.
+                        
+            Formulas:
+            - Volatility: $\\sigma = \\sqrt{\\frac{1}{N}\\sum_{i=1}^N (r_i - r_{\text{avg}})^2}$
+            - Beta: $\\beta = \\frac{\\text{Cov}(r_{\\text{stock}}, r_{\\text{market}})}{\\text{Var}(r_{\\text{market}})}$
+            - Sharpe Ratio: $S = \\frac{r - r_f}{\\sigma}$
+            - Risk Score: $R = w_1 \\cdot \\sigma + w_2 \\cdot \\beta + w_3 \\cdot (1 - S) + w_4 \\cdot \\text{Sector Risk}$
+            """)
+
+def get_all_companies():
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT name FROM companies")
+        companies = [row[0] for row in cursor.fetchall()]
+    return companies
+
+# Function to format large numbers as M or B, handling negative numbers
+def format_large_number(value):
+    if value is None:  # Handle cases where value might be None
+        return "N/A"
+    
+    abs_value = abs(value)  # Get the absolute value to determine the scale
+    if abs_value >= 1e9:  # Billions
+        return f"{value / 1e9:.2f}B"
+    elif abs_value >= 1e6:  # Millions
+        return f"{value / 1e6:.2f}M"
+    elif abs_value >= 1e3:  # Thousands (if needed)
+        return f"{value / 1e3:.2f}K"
     else:
-        st.markdown(f"No sufficient data available for {ticker} to calculate risk.")
-        st.progress(0)
+        return f"{value:.2f}"
 
 # Streamlit Application
 def page3():
@@ -368,20 +407,8 @@ def page3():
     if category != "All":
         companies = get_companies_by_category(category)
     else:
-        companies = []
-
-    # Dropdown to select a company from the filtered list
+        companies = get_all_companies()
     company_name = st.selectbox("Select a company:", companies)
-
-    # Search bar for company or ticker (now below the dropdowns)
-    search_term = st.text_input("Search for a company or ticker:", "")
-
-    # Filter companies based on search term if entered
-    if search_term:
-        with get_db_connection() as conn:
-            cursor = conn.cursor()
-            cursor.execute("SELECT name FROM companies WHERE name LIKE ?", ('%' + search_term + '%',))
-            companies = [row[0] for row in cursor.fetchall()]
 
     # If a company is selected, fetch and display details
     if company_name:
@@ -389,27 +416,76 @@ def page3():
         if company_details:
             ticker, pe_ratio, market_cap, revenue, net_income, eps = company_details
             st.subheader(f"Details for {company_name} ({ticker})")
-            col1, col2, col3, col4, col5 = st.columns(5)
+        
+            # Adjust column widths and avoid overflow
+            col1, col2, col3, col4, col5 = st.columns([3, 3, 3, 3, 3])  # Adjust the width ratio as needed
+        
+            # P/E Ratio
             with col1:
                 st.metric("P/E Ratio", round(pe_ratio, 2) if pe_ratio else "N/A")
+                with st.expander("What is P/E Ratio?"):
+                    st.write("""
+                        Low P/E means the stock might be undervalued, suggesting a good buying opportunity. 
+                        High P/E means people expect big growth, but the stock may be expensive.
+                    """)
+        
+            # Market Cap
             with col2:
-                st.metric("Market Cap", f"MYR {market_cap / 1e9:.2f} B" if market_cap else "N/A")
+                st.metric("Market Cap", format_large_number(market_cap) if market_cap else "N/A")
+                with st.expander("What is Market Cap?"):
+                    st.write("""
+                        How big the company is. 
+                        Larger companies have larger market cap, meaning generally safer to invest.
+                        Small companies could also offer high growth but are riskier.
+                    """)
+        
+            # Revenue
             with col3:
-                st.metric("Revenue", f"MYR {revenue / 1e9:.2f} B" if revenue else "N/A")
+                st.metric("Revenue", format_large_number(revenue) if revenue else "N/A")
+                with st.expander("What is Revenue?"):
+                    st.write("""
+                        Total amount of money a company earns from selling goods or services.
+                        High revenue means high income generated.
+                    """)
+        
+            # Net Income
             with col4:
-                st.metric("Net Income", f"MYR {net_income / 1e6:.2f} M" if net_income else "N/A")
+                st.metric("Net Income", format_large_number(net_income) if net_income else "N/A")
+                with st.expander("What is Net Income?"):
+                    st.write("""
+                        Company's total profit, after paying all expenses.
+                        Positive Net means a profitable company.
+                    """)
+        
+            # Earnings Per Share
             with col5:
                 st.metric("Earnings Per Share", round(eps, 2) if eps else "N/A")
+                with st.expander("What is Earnings Per Share (EPS)?"):
+                    st.write("""
+                        How much profit company makes per share. 
+                        High EPS means company is earning more from each share.
+                    """)
         else:
             st.warning("Company details not found.")
-    else:
-        st.warning("Please select a company to view details.")
 
     # Forecasting Section with Random Forest
     st.title("Forecast for Selected Stock")
 
-    # Input for forecast range and stock ticker
-    forecast_range = st.slider("Select number of days to forecast:", min_value=7, max_value=30, value=7, step=1)
+    # Input for forecast range using select buttons
+    forecast_options = {
+        "1 week": 7,
+        "2 weeks": 14,
+        "3 weeks": 21,
+        "1 month": 30
+    }
+    forecast_range_label = st.selectbox(
+        "Select forecast duration:",
+        options=list(forecast_options.keys()),
+        index=0  # Default selection is "1 week"
+    )
+
+    # Map the selected label to its corresponding value in days
+    forecast_range = forecast_options[forecast_range_label]
 
     # Fetch stock data for the selected company
     if company_name:
@@ -418,14 +494,8 @@ def page3():
             ticker = str(company_details[0])
             stock_data = get_stock_data_from_db(ticker)
 
-            # Debugging: Check the stock data
-            print(stock_data.head())
-
             # Convert 'close' column to numeric, coercing errors to NaN
             stock_data['close'] = pd.to_numeric(stock_data['close'], errors='coerce')
-
-            # Debugging: Check if the 'close' column has been converted correctly
-            print(stock_data['close'].head())
 
             if stock_data.empty:
                 st.warning(f"No historical data found for ticker {ticker}.")
@@ -456,18 +526,19 @@ def page3():
                     # Display metrics in Streamlit with layman explanation
                     r_squared_percentage = r_squared * 100
 
-                    st.markdown(
-                        f"""
-                        ### Model Forecast Details
-                        **Forecast Method:** Random Forest Regressor
+                    with st.expander("Model Forecast Details", expanded=False):
+                        st.markdown(
+                            f"""
+                            **Forecast Method:** Random Forest Regressor
 
-                        **Model Accuracy:** {r_squared_percentage:.2f}% | _This means the model explains {r_squared_percentage:.2f}% of the price movements based on historical data._
+                            **Model Accuracy:** {r_squared_percentage:.2f}% | _This means the model explains {r_squared_percentage:.2f}% of the price movements based on historical data._
 
-                        **Mean Absolute Error (MAE):** ±RM{mae:.2f} | _On average, the predictions deviate from actual prices by this amount._
+                            **Mean Absolute Error (MAE):** ±RM{mae:.2f} | _On average, the predictions deviate from actual prices by this amount._
 
-                        **Note:** The forecast is based on historical trends and assumes market conditions remain stable.
-                        """
-                    )
+                            **Note:** The forecast is based on historical trends and assumes market conditions remain stable.
+                            """
+                        )
+
 
                     display_risk_for_selected_company(ticker)
 

@@ -1,39 +1,69 @@
 import streamlit as st
 
-# Overview Page Content
 def page1():
-    st.title("Stock Dashboard Overview")
+    # Page Title
+    st.title("🌟 Stock Dashboard Overview 🌟")
 
-    st.write("""
-    Welcome to the **Stock Dashboard**. This tool provides real-time predictions and analysis for stock market trends. 
-    You can explore predictions based on various sectors and individual companies, and access historical data to guide your investment decisions.
-    """)
+    # Welcome Message
+    st.markdown(
+        """
+        <div style="background-color: #f9f9f9; padding: 15px; border-radius: 10px; margin-bottom: 20px;">
+            <h3 style="color: #333;">Welcome to the <b>Stock Dashboard</b>!</h3>
+            <p style="color: #666; font-size: 16px;">
+                This tool provides real-time predictions and analysis for stock market trends. 
+                Explore sector-based insights, company-specific forecasts, and historical data to make 
+                informed investment decisions. 🌱💹
+            </p>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
 
-    st.subheader("How to Use the Dashboard")
-    st.write("""
-    1. **Overview**: Get an overview of key stock market trends and insights.
-    2. **Sector Prediction**: Explore predictions based on specific market sectors.
-    3. **Company Prediction**: View detailed predictions for individual companies.
-    """)
+    # How to Use Section
+    st.subheader("📘 How to Use the Dashboard")
+    st.markdown(
+        """
+        1. **Overview**: 🏙️ View main market KLSE market trends and insights.
+        2. **Sector Prediction**: 🏢 Analyze predictions for specific market sectors.
+        3. **Company Prediction**: 🏦 Dive into detailed predictions for individual companies.
+        """
+    )
 
-    st.subheader("Features & Functionality")
-    st.write("""
-    - Real-time stock data and trend predictions.
-    - Sector and company-specific analysis.
-    - Interactive charts for data exploration.
-    - Historical trend insights.
-    """)
+    # Features & Functionality Section
+    st.subheader("✨ Features & Functionality")
+    st.markdown(
+        """
+        - 📊 **Historical stock data** and trend predictions.
+        - 🔍 **Sector and company-specific analysis** for deeper insights.
+        - 📈 **Interactive charts** to explore data visually.
+        - 📜 **Historical trend analysis** to identify patterns over time.
+        """
+    )
 
-    st.subheader("Data Sources")
-    st.write("""
-    This dashboard uses data from [API Name], and predictions are powered by [your model/algorithm name]. 
-    We strive to provide up-to-date and accurate information based on reliable financial data.
-    """)
+    # Data Sources Section
+    st.subheader("📡 Data Sources")
+    st.markdown(
+        """
+        This dashboard pulls data from **[Yahoo Finance](https://finance.yahoo.com/)**, with predictions 
+        powered by our **Machine Learning model**. We prioritize accurate, up-to-date, and reliable financial data. 🔗
+        """
+    )
 
-    st.subheader("Contact & Further Information")
-    st.write("""
-    For any inquiries or feedback, feel free to reach out to [your email].
-    """)
+    # Contact Section
+    st.subheader("📩 Contact & Feedback")
+    st.markdown(
+        """
+        Have questions or suggestions? We'd love to hear from you! 
+        Reach out via email at **[eilliyahfong@gmail.com](mailto:eilliyahfong@gmail.com)**. 📨
+        """
+    )
 
-    # Example Chart (Optional)
-    # st.line_chart(data) # Display a sample chart for preview
+    # Closing Note
+    st.markdown(
+        """
+        <div style="text-align: center; font-size: 14px; margin-top: 20px; color: #888;">
+            <em>Happy investing! 🚀💰</em>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )

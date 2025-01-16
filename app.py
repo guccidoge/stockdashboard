@@ -4,6 +4,7 @@ import page1 as p1  # Ensure these files exist with corresponding page functions
 import page2 as p2
 import page3 as p3
 from datetime import datetime, timedelta, time
+from pytz import timezone
 
 # Database connection
 conn = sqlite3.connect('klse_tickers.db')
@@ -28,13 +29,16 @@ def login_user(username, password):
     c.execute('SELECT * FROM userstable WHERE username =? AND password = ?', (username, password))
     return c.fetchall()
 
+
 # Get market status
 def get_market_status():
-    now = datetime.now()
-    market_open_morning = datetime.combine(now.date(), time(9, 0))
-    market_close_morning = datetime.combine(now.date(), time(12, 30))
-    market_open_afternoon = datetime.combine(now.date(), time(14, 30))
-    market_close_afternoon = datetime.combine(now.date(), time(17, 0))
+    # Use Malaysia timezone or your preferred timezone
+    local_tz = timezone("Asia/Kuala_Lumpur")
+    now = datetime.now(local_tz)
+    market_open_morning = local_tz.localize(datetime.combine(now.date(), time(9, 0)))
+    market_close_morning = local_tz.localize(datetime.combine(now.date(), time(12, 30)))
+    market_open_afternoon = local_tz.localize(datetime.combine(now.date(), time(14, 30)))
+    market_close_afternoon = local_tz.localize(datetime.combine(now.date(), time(17, 0)))
 
     if now < market_open_morning:
         status = "Market Closed"
@@ -47,27 +51,18 @@ def get_market_status():
     elif market_close_morning < now < market_open_afternoon:
         status = "Market Closed"
         time_remaining = market_open_afternoon - now
-        # Format time explicitly to remove microseconds
-        hours, remainder = divmod(int(time_remaining.total_seconds()), 3600)
-        minutes, seconds = divmod(remainder, 60)
-        message = f"Time until afternoon session opens: {hours:02}:{minutes:02}:{seconds:02}"
+        message = f"Time until afternoon session opens: {str(time_remaining).split('.')[0]}"
     elif market_open_afternoon <= now <= market_close_afternoon:
         status = "Market Open"
         time_remaining = market_close_afternoon - now
-        # Format time explicitly to remove microseconds
-        hours, remainder = divmod(int(time_remaining.total_seconds()), 3600)
-        minutes, seconds = divmod(remainder, 60)
-        message = f"Time until market closes: {hours:02}:{minutes:02}:{seconds:02}"
+        message = f"Time until market closes: {str(time_remaining).split('.')[0]}"
     else:
         status = "Market Closed"
         next_day_open = market_open_morning + timedelta(days=1)
         time_remaining = next_day_open - now
-        hours, remainder = divmod(int(time_remaining.total_seconds()), 3600)
-        minutes, seconds = divmod(remainder, 60)
-        message = f"Time until market opens tomorrow: {hours:02}:{minutes:02}:{seconds:02}"
+        message = f"Time until market opens tomorrow: {str(time_remaining).split('.')[0]}"
 
     return status, message
-
 
 # Main dashboard
 def main_dashboard():

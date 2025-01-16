@@ -1,6 +1,6 @@
 # Welcome to Stock Market Dashboard!
-- This is a comprehensive tool for any investing beginners looking for a clean overview of the important takeaways before betting your first dollar on a stock.
-- This project is deployed on Streamlit and uses a 100% of the Python programming language.
+- Suitable for investing beginners looking for a clean overview of the important takeaways before betting your first dollar on a stock.
+- This project is deployed on Streamlit Cloud and uses a 100% of the Python programming language.
 - [Check it out](https://guccidoge-stockdashboard-app-cmbpv3.streamlit.app/) and let me know if you'd like to suggest any improvements!
 - Presentation slides [here](https://www.canva.com/design/DAGcJoK_HGo/pMcOB3MgyMh2TNCIvAG-nw/edit?utm_content=DAGcJoK_HGo&utm_campaign=designshare&utm_medium=link2&utm_source=sharebutton).
   
